@@ -8,7 +8,6 @@ package com.mycompany.chat_room_gui;
  *
  * @author ignas
  */
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -16,10 +15,9 @@ import java.awt.geom.RoundRectangle2D;
 
 public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
 
-    
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(JFrame_Chat_Room_Lobby.class.getName());
     private String currentUsername;
-    
+
     /**
      * Creates new form JFrame_Lobby
      */
@@ -93,17 +91,54 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
         roomTable.setRowHeight(30);
         roomTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-        // Custom styling tabel agar senada dengan tema gelap
-        roomTable.setBackground(new Color(34, 41, 56));
-        roomTable.setForeground(Color.WHITE);
-        roomTable.setGridColor(new Color(50, 60, 80));
-        roomTable.getTableHeader().setBackground(new Color(24, 30, 43));
-        roomTable.getTableHeader().setForeground(Color.DARK_GRAY);
-        roomTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        // --- STYLING WARNA TABEL (DARK MODE NYAMAN DI MATA) ---
+        roomTable.setBackground(new Color(28, 35, 49));
+        roomTable.setForeground(new Color(220, 225, 235));
+        roomTable.setGridColor(new Color(42, 52, 74));
+        roomTable.setSelectionBackground(new Color(45, 115, 215));
+        roomTable.setSelectionForeground(Color.WHITE);
 
-        JScrollPane scrollPane = new JScrollPane(roomTable);
-        scrollPane.setBounds(30, 100, 630, 260);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(50, 60, 80)));
+        // --- REVOLUSI WARNA HEADER TABEL AGAR FIX GELAP DI NIMBUS LABELS ---
+        roomTable.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, 
+                    boolean isSelected, boolean hasFocus, int row, int column) {
+                
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                
+                // Set warna background & tulisan atas tabel
+                label.setBackground(new Color(20, 26, 38)); // Gelap pekat elegan
+                label.setForeground(new Color(180, 190, 210)); // Tulisan abu-abu terang soft
+                label.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                label.setHorizontalAlignment(SwingConstants.LEFT); // Rata kiri agar rapi
+                
+                // Memberikan padding/jarak tipis agar teks tidak terlalu menempel ke garis
+                label.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(42, 52, 74)), // Garis tepi gelap
+                    BorderFactory.createEmptyBorder(5, 8, 5, 5) // Jarak teks inside
+                ));
+                
+                return label;
+            }
+        });
+        
+        // Memastikan background utama header ikut tersinkronisasi
+        roomTable.getTableHeader().setBackground(new Color(20, 26, 38));
+        roomTable.getTableHeader().setOpaque(true);
+        
+        // --- KUNCI PERBAIKAN: INISIALISASI & SETT WARNA WADAH ---
+        JScrollPane scrollPane = new JScrollPane();
+        scrollPane.setBounds(30, 100, 630, 260); // Atur ukuran wadah dulu
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(42, 52, 74)));
+
+        // Pasang warna background gelap ke JScrollPane dan Viewport-nya
+        scrollPane.setBackground(new Color(28, 35, 49));
+        scrollPane.getViewport().setBackground(new Color(28, 35, 49));
+
+        // BARU MASUKKAN TABLE KE DALAM VIEWPORT SCROLLPANE
+        scrollPane.setViewportView(roomTable);
+
+        // Terakhir, masukkan JScrollPane utuh ke panel utama agar tampil
         mainPanel.add(scrollPane);
 
         // 5. Tombol "Join Room"
@@ -131,7 +166,11 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
         btnCreateRoom.addActionListener(e -> {
             String roomName = JOptionPane.showInputDialog(this, "Masukkan Nama Room Baru:", "Buat Room Baru", JOptionPane.PLAIN_MESSAGE);
             if (roomName != null && !roomName.trim().isEmpty()) {
-                tableModel.addRow(new Object[]{roomName.trim(), "1/50"});
+
+                // Perubahan Navigasi ke Layar 3 otomatis jadi Owner
+                this.dispose(); // Menutup frame Lobby
+                JFrame_Chat_Room_Interface chatRoom = new JFrame_Chat_Room_Interface(currentUsername, roomName.trim(), true);
+                chatRoom.setVisible(true);
             }
         });
 
@@ -140,8 +179,12 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
             int selectedRow = roomTable.getSelectedRow();
             if (selectedRow != -1) {
                 String selectedRoom = roomTable.getValueAt(selectedRow, 0).toString();
-                JOptionPane.showMessageDialog(this, "Mencoba masuk ke " + selectedRoom + "...");
-                // Di sini nanti tempat transisi menuju Layar 3 (Chat Room)
+
+                // Perubahan Navigasi ke Layar 3
+                this.dispose(); // Menutup frame Lobby
+                JFrame_Chat_Room_Interface chatRoom = new JFrame_Chat_Room_Interface(currentUsername, selectedRoom, false);
+                chatRoom.setVisible(true);
+
             } else {
                 JOptionPane.showMessageDialog(this, "Pilih room terlebih dahulu dari tabel!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             }
