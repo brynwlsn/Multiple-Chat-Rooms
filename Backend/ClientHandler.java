@@ -41,15 +41,21 @@ public class ClientHandler extends Thread {
                 switch (command) {
                     case "LOGIN":
                         this.clientName = parts[1].trim();
+
+                        // Simpan user ke database
+                        DatabaseManager.saveUser(this.clientName);
+
                         sendMessage("SYS_MSG|Selamat datang, " + this.clientName + "!");
                         break;
 
                     case "CREATE_ROOM":
                         String newRoomName = parts[1].trim();
                         if (!ChatServer.roomManager.containsKey(newRoomName)) {
-                            // clientName secara otomatis menjadi owner saat membuat ruangan
                             ChatRoom newRoom = new ChatRoom(newRoomName, this.clientName);
                             ChatServer.roomManager.put(newRoomName, newRoom);
+
+                            // Simpan room baru ke database
+                            DatabaseManager.saveRoom(newRoomName, this.clientName);
 
                             newRoom.addMember(this);
                             sendMessage("SYS_MSG|Berhasil membuat ruangan " + newRoomName);
@@ -83,17 +89,21 @@ public class ClientHandler extends Thread {
                         ChatRoom chatRoom = ChatServer.roomManager.get(targetRoomName);
 
                         if (chatRoom != null) {
+                            // Simpan riwayat chat ke database
+                            DatabaseManager.saveMessage(targetRoomName, this.clientName, chatContent);
+
                             chatRoom.broadcast("CHAT|" + this.clientName + "|" + chatContent);
                         } else {
                             sendMessage("SYS_MSG|Gagal: Ruangan tidak ditemukan.");
                         }
                         break;
-                        
+
                     case "LEAVE_ROOM": // Fitur tambahan dasar agar user bisa keluar sendiri
-                        if (parts.length < 2) break;
+                        if (parts.length < 2)
+                            break;
                         String leaveRoomName = parts[1].trim();
                         ChatRoom leaveRoom = ChatServer.roomManager.get(leaveRoomName);
-                        
+
                         if (leaveRoom != null) {
                             leaveRoom.removeMember(this);
                             leaveRoom.broadcast("SYS_MSG|" + this.clientName + " telah keluar dari ruangan.");
@@ -116,7 +126,7 @@ public class ClientHandler extends Thread {
                         if (kickRoom != null) {
                             // 1. Validasi Otoritas: Cek apakah pengirim perintah adalah owner
                             if (kickRoom.getOwnerName().equals(this.clientName)) {
-                                
+
                                 // 2. Cari target user di dalam list anggota ruangan tersebut
                                 ClientHandler targetClient = null;
                                 for (ClientHandler member : kickRoom.getMembers()) {
@@ -129,17 +139,22 @@ public class ClientHandler extends Thread {
                                 // 3. Eksekusi pengeluaran jika target ditemukan
                                 if (targetClient != null) {
                                     kickRoom.removeMember(targetClient);
-                                    
-                                    // Kirim sinyal khusus FORCE_LEAVE agar GUI target tahu ia harus kembali ke lobby
-                                    targetClient.sendMessage("FORCE_LEAVE|Anda telah dikeluarkan oleh pemilik ruangan.");
-                                    
+
+                                    // Kirim sinyal khusus FORCE_LEAVE agar GUI target tahu ia harus kembali ke
+                                    // lobby
+                                    targetClient
+                                            .sendMessage("FORCE_LEAVE|Anda telah dikeluarkan oleh pemilik ruangan.");
+
                                     // Beritahu anggota lain yang tersisa di ruangan
-                                    kickRoom.broadcast("SYS_MSG|" + targetUserName + " telah dikeluarkan dari ruangan.");
+                                    kickRoom.broadcast(
+                                            "SYS_MSG|" + targetUserName + " telah dikeluarkan dari ruangan.");
                                 } else {
-                                    sendMessage("SYS_MSG|Gagal: User " + targetUserName + " tidak ditemukan di ruangan.");
+                                    sendMessage(
+                                            "SYS_MSG|Gagal: User " + targetUserName + " tidak ditemukan di ruangan.");
                                 }
                             } else {
-                                sendMessage("SYS_MSG|Gagal: Anda tidak memiliki hak akses. Hanya pemilik ruangan yang dapat melakukan KICK.");
+                                sendMessage(
+                                        "SYS_MSG|Gagal: Anda tidak memiliki hak akses. Hanya pemilik ruangan yang dapat melakukan KICK.");
                             }
                         } else {
                             sendMessage("SYS_MSG|Gagal: Ruangan tidak ditemukan.");
@@ -157,14 +172,17 @@ public class ClientHandler extends Thread {
                         if (closeRoom != null) {
                             // 1. Validasi Otoritas: Cek apakah pengirim perintah adalah owner
                             if (closeRoom.getOwnerName().equals(this.clientName)) {
-                                
-                                // 2. Broadcast sinyal paksa keluar ke SEMUA anggota yang ada di ruangan tersebut
+
+                                // 2. Broadcast sinyal paksa keluar ke SEMUA anggota yang ada di ruangan
+                                // tersebut
                                 closeRoom.broadcast("FORCE_LEAVE|Ruangan telah ditutup secara permanen oleh pemilik.");
-                                
-                                // 3. Hapus ruangan dari memori (HashMap) server utama
                                 ChatServer.roomManager.remove(closeRoomName);
+
+                                // Hapus ruangan dari database
+                                DatabaseManager.deleteRoom(closeRoomName);
+
                                 System.out.println("DEBUG: Ruangan " + closeRoomName + " telah dihapus dari server.");
-                                
+
                             } else {
                                 sendMessage("SYS_MSG|Gagal: Anda tidak memiliki hak akses untuk menutup ruangan ini.");
                             }
@@ -182,7 +200,8 @@ public class ClientHandler extends Thread {
         } finally {
             // Pembersihan jika klien keluar secara paksa/mati lampu
             try {
-                // Mencari dan mengeluarkan user dari semua ruangan jika mereka terputus mendadak
+                // Mencari dan mengeluarkan user dari semua ruangan jika mereka terputus
+                // mendadak
                 for (ChatRoom room : ChatServer.roomManager.values()) {
                     if (room.getMembers().contains(this)) {
                         room.removeMember(this);

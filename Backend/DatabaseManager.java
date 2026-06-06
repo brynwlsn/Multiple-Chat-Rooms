@@ -7,7 +7,7 @@ public class DatabaseManager {
     
     // Sesuaikan dengan konfigurasi SQL Server kamu
     // encrypt=true;trustServerCertificate=true; sangat penting untuk versi JDBC terbaru agar tidak kena error SSL
-    private static final String DB_URL = "jdbc:sqlserver://localhost:1433;databaseName=ChatDB;encrypt=true;trustServerCertificate=true;";
+    private static final String DB_URL = "jdbc:sqlserver://localhost:1433;databaseName=MultipleChatRoom;encrypt=true;trustServerCertificate=true;";
     
     // Default SSMS biasanya menggunakan otentikasi Windows, 
     // Tapi jika kamu pakai SQL Server Authentication (sa)', masukkan di sini:
