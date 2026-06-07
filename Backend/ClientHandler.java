@@ -58,8 +58,16 @@ public class ClientHandler extends Thread {
                             DatabaseManager.saveRoom(newRoomName, this.clientName);
 
                             newRoom.addMember(this);
+                            DatabaseManager.saveParticipant(newRoomName, this.clientName);
                             sendMessage("SYS_MSG|Berhasil membuat ruangan " + newRoomName);
                             newRoom.broadcast("SYS_MSG|" + this.clientName + " telah masuk.");
+
+                            // ============================================================
+                            // KUNCI UTAMA MASALAH 2: Pemicu Broadcast ke Semua Orang
+                            // ============================================================
+                            broadcastLobbyRefresh();
+                            // ============================================================
+
                         } else {
                             sendMessage("SYS_MSG|Gagal: Nama ruangan sudah dipakai!");
                         }
@@ -71,6 +79,7 @@ public class ClientHandler extends Thread {
 
                         if (targetJoin != null) {
                             targetJoin.addMember(this);
+                            DatabaseManager.saveParticipant(joinRoomName, this.clientName);
                             sendMessage("SYS_MSG|Berhasil masuk ke ruangan " + joinRoomName);
                             targetJoin.broadcast("SYS_MSG|" + this.clientName + " tergabung.");
                         } else {
@@ -106,6 +115,7 @@ public class ClientHandler extends Thread {
 
                         if (leaveRoom != null) {
                             leaveRoom.removeMember(this);
+                            DatabaseManager.deleteParticipant(leaveRoomName, this.clientName);
                             leaveRoom.broadcast("SYS_MSG|" + this.clientName + " telah keluar dari ruangan.");
                             sendMessage("SYS_MSG|Anda telah keluar dari ruangan " + leaveRoomName);
                         }
@@ -139,6 +149,7 @@ public class ClientHandler extends Thread {
                                 // 3. Eksekusi pengeluaran jika target ditemukan
                                 if (targetClient != null) {
                                     kickRoom.removeMember(targetClient);
+                                    DatabaseManager.deleteParticipant(kickRoomName, targetUserName);
 
                                     // Kirim sinyal khusus FORCE_LEAVE agar GUI target tahu ia harus kembali ke
                                     // lobby
@@ -170,19 +181,18 @@ public class ClientHandler extends Thread {
                         ChatRoom closeRoom = ChatServer.roomManager.get(closeRoomName);
 
                         if (closeRoom != null) {
-                            // 1. Validasi Otoritas: Cek apakah pengirim perintah adalah owner
                             if (closeRoom.getOwnerName().equals(this.clientName)) {
 
-                                // 2. Broadcast sinyal paksa keluar ke SEMUA anggota yang ada di ruangan
-                                // tersebut
+                                // Broadcast sinyal paksa keluar ke SEMUA anggota
                                 closeRoom.broadcast("FORCE_LEAVE|Ruangan telah ditutup secara permanen oleh pemilik.");
-                                ChatServer.roomManager.remove(closeRoomName);
 
-                                // Hapus ruangan dari database
+                                // PERBAIKAN: Kosongkan list member di memori Java terlebih dahulu agar aman
+                                closeRoom.getMembers().clear();
+
+                                ChatServer.roomManager.remove(closeRoomName);
                                 DatabaseManager.deleteRoom(closeRoomName);
 
                                 System.out.println("DEBUG: Ruangan " + closeRoomName + " telah dihapus dari server.");
-
                             } else {
                                 sendMessage("SYS_MSG|Gagal: Anda tidak memiliki hak akses untuk menutup ruangan ini.");
                             }
@@ -211,6 +221,19 @@ public class ClientHandler extends Thread {
                 socket.close();
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+        }
+    }
+
+    // Fungsi untuk menyiarkan perintah refresh ke semua client yang sedang
+    // terhubung
+    private void broadcastLobbyRefresh() {
+        // Mengambil semua thread yang sedang berjalan di JVM
+        for (Thread t : Thread.getAllStackTraces().keySet()) {
+            if (t instanceof ClientHandler) {
+                ClientHandler handler = (ClientHandler) t;
+                // Kirim protokol khusus REFRESH_LOBBY ke semua komputer client
+                handler.sendMessage("REFRESH_LOBBY");
             }
         }
     }

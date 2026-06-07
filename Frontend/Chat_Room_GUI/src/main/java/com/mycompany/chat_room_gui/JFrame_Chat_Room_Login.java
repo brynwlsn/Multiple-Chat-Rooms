@@ -152,10 +152,11 @@ public class JFrame_Chat_Room_Login extends javax.swing.JFrame {
                         // Gunakan "localhost" jika Anda menguji coba Server & GUI di satu laptop yang sama.
                         String ipServer = "localhost";
                         int portServer = 12345; // Sesuaikan port dengan settingan di backend teman Anda
-
+                        boolean success = client.getInstance().startConnection(ipServer, portServer, username);
                         // Jalankan koneksi socket TCP
-                        if (client.startConnection(ipServer, portServer, username)) {
-                            // Jika sukses connect, pindah ke Layar 2 (Lobby)
+                        // Kirim protokol LOGIN ke server menggunakan pembatas tanda pipa
+                        if (success) {
+
                             JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(LoginCard.this);
                             currentFrame.dispose();
 

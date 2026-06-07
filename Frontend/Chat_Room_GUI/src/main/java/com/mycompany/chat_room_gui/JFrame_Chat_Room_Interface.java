@@ -15,9 +15,6 @@ import java.awt.geom.RoundRectangle2D;
  */
 public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
 
-    /**
-     * Creates new form JFrame_Chat_Room_Interface
-     */
     private String username;
     private String roomName;
     private boolean isOwner; // Menentukan hak akses sesuai spesifikasi rubrik
@@ -51,7 +48,7 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
         JLabel lblRoomTitle = new JLabel("Room: " + roomName);
         lblRoomTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblRoomTitle.setForeground(Color.WHITE);
-        lblRoomTitle.setBounds(75, 15, 400, 30); // X diubah dari 25 menjadi 75
+        lblRoomTitle.setBounds(75, 15, 400, 30);
         mainPanel.add(lblRoomTitle);
 
         // 2. TAMBAHKAN TOMBOL KEMBALI (Back Button) di koordinat X: 20
@@ -60,7 +57,6 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2d = (Graphics2D) g.create();
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Efek lingkaran/kotak melengkung transparan saat tombol melayang
                 if (getModel().isRollover()) {
                     g2d.setColor(new Color(255, 255, 255, 30));
                 } else {
@@ -77,14 +73,16 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
         btnBack.setBorderPainted(false);
         btnBack.setFocusPainted(false);
         btnBack.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnBack.setBounds(20, 15, 45, 30); // Posisi pas di pojok kiri atas judul
+        btnBack.setBounds(20, 15, 45, 30);
         mainPanel.add(btnBack);
 
-        // 3. AKSI TOMBOL KEMBALI (Pindah ke Lobby)
+        // 3. AKSI TOMBOL KEMBALI (Kirim Sinyal LEAVE_ROOM ke Backend)
         btnBack.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(this, "Apakah Anda yakin ingin keluar dari room chat?", "Keluar Room", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
-                backToLobby(); // Memanggil fungsi navigasi balik yang sudah ada di bawah kode Anda
+                // PERBAIKAN 1: Beritahu backend server bahwa user ini keluar dari room via Socket
+                ChatClient.getInstance().sendMessage("LEAVE_ROOM|" + roomName);
+                backToLobby();
             }
         });
 
@@ -109,9 +107,7 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
 
         listModel = new DefaultListModel<>();
         listModel.addElement(username + " (You)");
-        listModel.addElement("Budi_Gamer");
-        listModel.addElement("Siti_Java");
-        listModel.addElement("Alex99");
+        // PERBAIKAN 2: Menghapus data simulasi palsu agar daftar murni terisi dari aktivitas jaringan database backend
 
         userJList = new JList<>(listModel);
         userJList.setBackground(new Color(34, 41, 56));
@@ -154,18 +150,25 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
         mainPanel.add(btnSend);
 
         // 5. Tombol Fitur Akses Owner (Kick & Tutup Room)
+        // 5. Tombol Fitur Akses Owner (Kick & Tutup Room)
         btnKick = new JButton("Kick User");
         btnKick.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnKick.setBackground(new Color(180, 40, 40));
+        btnKick.setBackground(new Color(180, 40, 40)); // Warna Merah
         btnKick.setForeground(Color.WHITE);
+        btnKick.setContentAreaFilled(true);  // 👑 TAMBAHKAN INI agar warna background keluar
+        btnKick.setBorderPainted(false);     // 👑 TAMBAHKAN INI agar tidak di-override OS
+        btnKick.setFocusPainted(false);
         btnKick.setBounds(530, 315, 180, 35);
         btnKick.setCursor(new Cursor(Cursor.HAND_CURSOR));
         mainPanel.add(btnKick);
 
         btnCloseRoom = new JButton("Tutup Room 👑");
         btnCloseRoom.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnCloseRoom.setBackground(new Color(210, 105, 30));
+        btnCloseRoom.setBackground(new Color(210, 105, 30)); // Warna Oranye/Cokelat
         btnCloseRoom.setForeground(Color.WHITE);
+        btnCloseRoom.setContentAreaFilled(true);  // 👑 TAMBAHKAN INI agar warna background keluar
+        btnCloseRoom.setBorderPainted(false);     // 👑 TAMBAHKAN INI agar tidak di-override OS
+        btnCloseRoom.setFocusPainted(false);
         btnCloseRoom.setBounds(530, 365, 180, 35);
         btnCloseRoom.setCursor(new Cursor(Cursor.HAND_CURSOR));
         mainPanel.add(btnCloseRoom);
@@ -177,31 +180,39 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
         }
 
         // --- ACTION LISTENERS ---
-        // Aksi Kirim Chat (User Send)
         btnSend.addActionListener(e -> appendMessage());
         messageField.addActionListener(e -> appendMessage());
 
         // Aksi Kick User (Hanya Owner yang bisa mengeksekusi)
         btnKick.addActionListener(e -> {
             String selectedUser = userJList.getSelectedValue();
-            if (selectedUser != null && !selectedUser.contains("(You)")) {
-                int confirm = JOptionPane.showConfirmDialog(this, "Yakin ingin menendang " + selectedUser + "?", "Konfirmasi Kick", JOptionPane.YES_NO_OPTION);
+            if (selectedUser != null) {
+                // Hilangkan imbuhan "(You)" atau spasi jika ada pencocokan string nama
+                String targetName = selectedUser.replace(" (You)", "").trim();
+
+                if (targetName.equals(username)) {
+                    JOptionPane.showMessageDialog(this, "Anda tidak bisa menendang diri Anda sendiri!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                int confirm = JOptionPane.showConfirmDialog(this, "Yakin ingin menendang " + targetName + "?", "Konfirmasi Kick", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
-                    listModel.removeElement(selectedUser);
+                    // PERBAIKAN 3: Kirim protokol jaringan KICK ke server backend teman Anda
+                    ChatClient.getInstance().sendMessage("KICK|" + roomName + "|" + targetName);
                 }
             } else {
-                JOptionPane.showMessageDialog(this, "Pilih user aktif lain dari JList yang ingin di-kick!");
+                JOptionPane.showMessageDialog(this, "Pilih user aktif dari JList yang ingin di-kick!");
             }
         });
 
         // Aksi Tutup Room
         btnCloseRoom.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this, "Room ini telah ditutup oleh Owner.");
-            backToLobby();
+            int confirm = JOptionPane.showConfirmDialog(this, "Apakah Anda yakin ingin menutup ruangan ini secara permanen?", "Konfirmasi Tutup Room", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                // PERBAIKAN 4: Kirim protokol jaringan CLOSE_ROOM ke server backend teman Anda
+                ChatClient.getInstance().sendMessage("CLOSE_ROOM|" + roomName);
+            }
         });
-
-        // Simulasi pesan masuk otomatis dari orang lain saat masuk room (Rata Kiri)
-        appendPeerMessage("Budi_Gamer", "Halo bro! Selamat datang di room chat.");
 
         // Beritahu sistem jaringan bahwa layar chat room inilah yang sekarang sedang aktif di monitor
         ChatClient.getInstance().setActiveFrame(this);
@@ -211,14 +222,14 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
     private void appendMessage() {
         String text = messageField.getText().trim();
         if (!text.isEmpty()) {
-            // 1. Tembak data pesan asli ke server backend teman Anda melalui socket TCP [cite: 14, 25]
-            // Format pengiriman disesuaikan dengan kebutuhan parsing database backend teman Anda
-            ChatClient.getInstance().sendMessage("SEND_CHAT:" + roomName + ":" + text);
+            // Kirim pesan asli ke server backend (Format: SEND_MSG|NamaRoom|IsiPesan)
+            ChatClient.getInstance().sendMessage("SEND_MSG|" + roomName + "|" + text);
 
-            // 2. Tampilkan secara visual di layar Anda sendiri (Rata Kanan) [cite: 15]
+            // Cetak di layar sendiri (Rata Kanan)
             SimpleAttributeSet right = new SimpleAttributeSet();
             StyleConstants.setAlignment(right, StyleConstants.ALIGN_RIGHT);
             StyleConstants.setForeground(right, new Color(130, 200, 255));
+            StyleConstants.setFontSize(right, 14);
 
             try {
                 StyledDocument doc = chatTextPane.getStyledDocument();
@@ -229,22 +240,6 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
                 ex.printStackTrace();
             }
             messageField.setText("");
-        }
-    }
-
-    // Poin Nilai Plus: Mengatur chat orang lain agar RATA KIRI
-    void appendPeerMessage(String sender, String text) {
-        SimpleAttributeSet left = new SimpleAttributeSet();
-        StyleConstants.setAlignment(left, StyleConstants.ALIGN_LEFT);
-        StyleConstants.setForeground(left, Color.LIGHT_GRAY);
-
-        try {
-            StyledDocument doc = chatTextPane.getStyledDocument();
-            int length = doc.getLength();
-            doc.insertString(length, sender + ": " + text + "\n", left);
-            doc.setParagraphAttributes(length, text.length() + sender.length() + 3, left, false);
-        } catch (Exception ex) {
-            ex.printStackTrace();
         }
     }
 
@@ -267,6 +262,40 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
             GradientPaint gp = new GradientPaint(0, 0, color1, getWidth(), getHeight(), color2);
             g2d.setPaint(gp);
             g2d.fillRect(0, 0, getWidth(), getHeight());
+        }
+    }
+
+    // 1. Untuk mencetak pesan dari pengguna lain (Rata Kiri)
+    public void appendPeerMessage(String sender, String text) {
+        SimpleAttributeSet left = new SimpleAttributeSet();
+        StyleConstants.setAlignment(left, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setForeground(left, Color.WHITE);
+        StyleConstants.setFontSize(left, 14);
+
+        try {
+            StyledDocument doc = chatTextPane.getStyledDocument();
+            int length = doc.getLength();
+            doc.insertString(length, sender + ": " + text + "\n", left);
+            doc.setParagraphAttributes(length, sender.length() + text.length() + 3, left, false);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    // 2. Untuk mencetak pemberitahuan sistem (Rata Tengah / Warna Abu-abu)
+    public void appendSystemMessage(String sysText) {
+        SimpleAttributeSet center = new SimpleAttributeSet();
+        StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
+        StyleConstants.setForeground(center, Color.LIGHT_GRAY);
+        StyleConstants.setItalic(center, true);
+
+        try {
+            StyledDocument doc = chatTextPane.getStyledDocument();
+            int length = doc.getLength();
+            doc.insertString(length, "[SISTEM] " + sysText + "\n", center);
+            doc.setParagraphAttributes(length, sysText.length() + 10, center, false);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 

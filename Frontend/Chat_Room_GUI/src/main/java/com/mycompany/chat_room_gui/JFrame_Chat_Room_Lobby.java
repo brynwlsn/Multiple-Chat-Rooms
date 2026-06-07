@@ -17,6 +17,7 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
 
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(JFrame_Chat_Room_Lobby.class.getName());
     private String currentUsername;
+    private JTable roomTable;
 
     /**
      * Creates new form JFrame_Lobby
@@ -86,7 +87,7 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
             }
         };
 
-        JTable roomTable = new JTable(tableModel);
+        roomTable = new JTable(tableModel);
         roomTable.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         roomTable.setRowHeight(30);
         roomTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -164,13 +165,17 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
 
         // Aksi Tombol Buat Room (Pop-up Nama Room)
         btnCreateRoom.addActionListener(e -> {
-            String roomName = JOptionPane.showInputDialog(this, "Masukkan Nama Room Baru:", "Buat Room Baru", JOptionPane.PLAIN_MESSAGE);
+            String roomName = JOptionPane.showInputDialog(this, "Masukkan Nama Room Baru:", "Create Room", JOptionPane.PLAIN_MESSAGE);
             if (roomName != null && !roomName.trim().isEmpty()) {
-
-                // Perubahan Navigasi ke Layar 3 otomatis jadi Owner
-                this.dispose(); // Menutup frame Lobby
-                JFrame_Chat_Room_Interface chatRoom = new JFrame_Chat_Room_Interface(currentUsername, roomName.trim(), true);
-                chatRoom.setVisible(true);
+                roomName = roomName.trim();
+                
+                // 1. Tembak data ke server backend lewat Socket TCP
+                ChatClient.getInstance().sendMessage("CREATE_ROOM|" + roomName);
+                
+                // 2. Berpindah halaman ke Interface Chat Room sebagai OWNER (true)
+                this.dispose();
+                JFrame_Chat_Room_Interface chatScreen = new JFrame_Chat_Room_Interface(currentUsername, roomName, true);
+                chatScreen.setVisible(true);
             }
         });
 
@@ -178,17 +183,32 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
         btnJoinRoom.addActionListener(e -> {
             int selectedRow = roomTable.getSelectedRow();
             if (selectedRow != -1) {
-                String selectedRoom = roomTable.getValueAt(selectedRow, 0).toString();
-
-                // Perubahan Navigasi ke Layar 3
-                this.dispose(); // Menutup frame Lobby
-                JFrame_Chat_Room_Interface chatRoom = new JFrame_Chat_Room_Interface(currentUsername, selectedRoom, false);
-                chatRoom.setVisible(true);
-
+                String roomName = roomTable.getValueAt(selectedRow, 0).toString();
+                
+                // 1. Tembak data join ke server backend
+                ChatClient.getInstance().sendMessage("JOIN_ROOM|" + roomName);
+                
+                // 2. Berpindah halaman ke Interface Chat Room sebagai MEMBER BIASA (false)
+                this.dispose();
+                JFrame_Chat_Room_Interface chatScreen = new JFrame_Chat_Room_Interface(currentUsername, roomName, false);
+                chatScreen.setVisible(true);
             } else {
-                JOptionPane.showMessageDialog(this, "Pilih room terlebih dahulu dari tabel!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Silakan pilih room terlebih dahulu dari tabel!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             }
         });
+        
+        // Daftarkan frame ini ke ChatClient sebagai frame yang sedang aktif/terbuka
+        ChatClient.getInstance().setCurrentActiveFrame(this);
+    }
+    
+    public void refreshTableData() {
+        // Asumsi nama tabel Anda adalah jTable1 atau sejenisnya
+        // Ambil model dari tabel UI Anda
+        DefaultTableModel model = (DefaultTableModel) roomTable.getModel(); 
+        model.setRowCount(0); // Kosongkan baris tabel lama
+        
+        // Panggil kembali fungsi atau query yang bertugas mengisi tabel dari database Anda
+        // Contoh: loadRoomListFromDatabase();
     }
 
     // Panel khusus Background Gradient

@@ -6,6 +6,7 @@ package com.mycompany.chat_room_gui;
 
 import java.io.*;
 import java.net.Socket;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 public class ChatClient {
@@ -39,7 +40,7 @@ public class ChatClient {
 
             // Kirim pesan identitas pertama kali ke server untuk disimpan ke Database backend
             // (Sesuaikan format teks ini dengan protokol kode backend milik teman Anda!)
-            out.println("LOGIN:" + username);
+            out.println("LOGIN|" + username);
 
             // Jalankan Thread background untuk mendengarkan kiriman chat masuk tanpa henti
             new Thread(new ServerListener()).start();
@@ -87,21 +88,65 @@ public class ChatClient {
     }
 
     // Menangani logika pemisahan string perintah (Protocol Parsing) dari backend
+    // Menangani logika pemisahan string perintah dari backend (Menggunakan pembatas Pipa '|')
     private void handleIncomingMessage(String rawMsg) {
-        // Contoh analisis protokol pesan: "CHAT:Budi:Halo apa kabar"
-        if (rawMsg.startsWith("CHAT:")) {
-            String[] parts = rawMsg.split(":", 3);
-            String sender = parts[1];
-            String text = parts[2];
+        System.out.println("DEBUG (Terima dari Server): " + rawMsg);
 
-            // Jika kita sedang berada di Layar Chat Room Interface, tampilkan chatnya!
+        // Memisahkan pesan berdasarkan tanda pipa |
+        String[] parts = rawMsg.split("\\|", 3);
+        String command = parts[0].trim();
+
+        if (command.equals("CHAT")) {
+            // Format dari backend: CHAT|SenderName|MessageText
+            String sender = parts[1].trim();
+            String text = parts[2].trim();
+
             if (currentActiveFrame instanceof JFrame_Chat_Room_Interface) {
                 JFrame_Chat_Room_Interface ui = (JFrame_Chat_Room_Interface) currentActiveFrame;
                 if (!sender.equals(currentUsername)) {
-                    ui.appendPeerMessage(sender, text); // Muncul di rata kiri
+                    ui.appendPeerMessage(sender, text);
                 }
             }
+        } else if (command.equals("SYS_MSG")) {
+            // Format dari backend: SYS_MSG|PesanSistem
+            String sysText = parts[1].trim();
+
+            // Jika berada di layar chat, cetak sebagai pesan sistem di text pane
+            if (currentActiveFrame instanceof JFrame_Chat_Room_Interface) {
+                JFrame_Chat_Room_Interface ui = (JFrame_Chat_Room_Interface) currentActiveFrame;
+                ui.appendSystemMessage(sysText);
+            } else {
+                // Jika di luar layar chat, tampilkan sebagai pop-up pemberitahuan interaktif
+                JOptionPane.showMessageDialog(null, sysText, "Informasi Sistem", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } else if (command.equals("FORCE_LEAVE")) {
+            // Format dari backend jika room ditutup owner atau di-kick
+            String reason = parts[1].trim();
+            JOptionPane.showMessageDialog(null, reason, "Peringatan", JOptionPane.WARNING_MESSAGE);
+
+            if (currentActiveFrame instanceof JFrame_Chat_Room_Interface) {
+                JFrame_Chat_Room_Interface ui = (JFrame_Chat_Room_Interface) currentActiveFrame;
+                ui.dispose(); // Tutup layar chat
+
+                // Kembali ke Lobby secara otomatis sesuai spesifikasi rubrik jarkom
+                JFrame_Chat_Room_Lobby lobby = new JFrame_Chat_Room_Lobby(currentUsername);
+                lobby.setVisible(true);
+            }
+        } else if (rawMsg.equals("REFRESH_LOBBY")) {
+            // Cek apakah user saat ini sedang membuka halaman Lobby
+            if (currentActiveFrame instanceof JFrame_Chat_Room_Lobby) {
+                JFrame_Chat_Room_Lobby lobbyUI = (JFrame_Chat_Room_Lobby) currentActiveFrame;
+
+                // Jalankan fungsi refresh tabel secara aman di dalam Thread UI Swing
+                SwingUtilities.invokeLater(() -> {
+                    lobbyUI.refreshTableData();
+                });
+            }
         }
-        // Anda bisa menambahkan else if untuk BROADCAST:USER_JOIN, ROOM_CREATED, KICKED, dll. [cite: 13, 18, 19]
+    }
+
+    // Method untuk memberi tahu ChatClient frame mana yang sedang tampil di layar
+    public void setCurrentActiveFrame(Object frame) {
+        this.currentActiveFrame = frame;
     }
 }
