@@ -12,7 +12,7 @@ public class DatabaseManager {
     // Default SSMS biasanya menggunakan otentikasi Windows, 
     // Tapi jika kamu pakai SQL Server Authentication (sa)', masukkan di sini:
     private static final String USER = "sa"; 
-    private static final String PASS = "password_sa_kamu"; 
+    private static final String PASS = "passwordSQLAnda"; 
 
     // Method untuk mendapatkan koneksi
     public static Connection getConnection() throws SQLException {

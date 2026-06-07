@@ -5,15 +5,13 @@
     <artifactId>Chat_Room_GUI</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
+    
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>24</maven.compiler.release>
-        <exec.mainClass>com.mycompany.chat_room_gui.Chat_Room_GUI</exec.mainClass>
+        <maven.compiler.release>17</maven.compiler.release>
+        <exec.mainClass>com.mycompany.chat_room_gui.JFrame_Chat_Room_Login</exec.mainClass>
     </properties>
 
-    <dependency>
-    <groupId>com.microsoft.sqlserver</groupId>
-    <artifactId>mssql-jdbc</artifactId>
-    <version>12.6.1.jre11</version>
-</dependency>
+    <dependencies>
+    </dependencies> 
 </project>

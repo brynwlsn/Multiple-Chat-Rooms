@@ -142,20 +142,30 @@ public class JFrame_Chat_Room_Login extends javax.swing.JFrame {
                 public void actionPerformed(ActionEvent e) {
                     String username = usernameField.getText().trim();
                     if (!username.isEmpty()) {
-                        statusLabel.setText("Connecting as " + username + "...");
+                        statusLabel.setText("Connecting to server...");
                         statusLabel.setForeground(new Color(230, 160, 30));
 
-                        // --- PROSES NAVIGASI / PINDAH FRAME ---
-                        // 1. Tutup/Sembunyikan frame login saat ini
-                        // SwingUtilities.getWindowAncestor digunakan untuk mendapatkan objek JFrame utama dari dalam panel
-                        JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(LoginCard.this);
-                        currentFrame.dispose(); // Menutup dan membebaskan memori frame login
+                        // Ambil instance client jaringan
+                        ChatClient client = ChatClient.getInstance();
 
-                        // 2. Buka dan tampilkan Layar 2 (Lobby) dengan mengirimkan data username
-                        JFrame_Chat_Room_Lobby lobbyScreen = new JFrame_Chat_Room_Lobby(username);
-                        lobbyScreen.setVisible(true);
+                        // Masukkan IP laptop teman Anda yang menyalakan program Server backend.
+                        // Gunakan "localhost" jika Anda menguji coba Server & GUI di satu laptop yang sama.
+                        String ipServer = "localhost";
+                        int portServer = 12345; // Sesuaikan port dengan settingan di backend teman Anda
 
-                        // --------------------------------------
+                        // Jalankan koneksi socket TCP
+                        if (client.startConnection(ipServer, portServer, username)) {
+                            // Jika sukses connect, pindah ke Layar 2 (Lobby)
+                            JFrame currentFrame = (JFrame) SwingUtilities.getWindowAncestor(LoginCard.this);
+                            currentFrame.dispose();
+
+                            JFrame_Chat_Room_Lobby lobbyScreen = new JFrame_Chat_Room_Lobby(username);
+                            lobbyScreen.setVisible(true);
+                        } else {
+                            statusLabel.setText("● Connection Failed! Server Offline.");
+                            statusLabel.setForeground(Color.RED);
+                            JOptionPane.showMessageDialog(null, "Gagal terhubung ke Server! Pastikan Server backend sudah dinyalakan.", "Error Koneksi", JOptionPane.ERROR_MESSAGE);
+                        }
                     } else {
                         JOptionPane.showMessageDialog(null, "Username tidak boleh kosong!", "Peringatan", JOptionPane.WARNING_MESSAGE);
                     }

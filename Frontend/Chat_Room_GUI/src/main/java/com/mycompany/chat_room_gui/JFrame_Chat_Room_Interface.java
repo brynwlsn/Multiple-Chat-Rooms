@@ -202,15 +202,23 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
 
         // Simulasi pesan masuk otomatis dari orang lain saat masuk room (Rata Kiri)
         appendPeerMessage("Budi_Gamer", "Halo bro! Selamat datang di room chat.");
+
+        // Beritahu sistem jaringan bahwa layar chat room inilah yang sekarang sedang aktif di monitor
+        ChatClient.getInstance().setActiveFrame(this);
     }
 
     // Poin Nilai Plus: Mengatur chat kiriman sendiri agar RATA KANAN
     private void appendMessage() {
         String text = messageField.getText().trim();
         if (!text.isEmpty()) {
+            // 1. Tembak data pesan asli ke server backend teman Anda melalui socket TCP [cite: 14, 25]
+            // Format pengiriman disesuaikan dengan kebutuhan parsing database backend teman Anda
+            ChatClient.getInstance().sendMessage("SEND_CHAT:" + roomName + ":" + text);
+
+            // 2. Tampilkan secara visual di layar Anda sendiri (Rata Kanan) [cite: 15]
             SimpleAttributeSet right = new SimpleAttributeSet();
             StyleConstants.setAlignment(right, StyleConstants.ALIGN_RIGHT);
-            StyleConstants.setForeground(right, new Color(130, 200, 255)); // Warna biru muda cerah
+            StyleConstants.setForeground(right, new Color(130, 200, 255));
 
             try {
                 StyledDocument doc = chatTextPane.getStyledDocument();
@@ -225,7 +233,7 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
     }
 
     // Poin Nilai Plus: Mengatur chat orang lain agar RATA KIRI
-    private void appendPeerMessage(String sender, String text) {
+    void appendPeerMessage(String sender, String text) {
         SimpleAttributeSet left = new SimpleAttributeSet();
         StyleConstants.setAlignment(left, StyleConstants.ALIGN_LEFT);
         StyleConstants.setForeground(left, Color.LIGHT_GRAY);
