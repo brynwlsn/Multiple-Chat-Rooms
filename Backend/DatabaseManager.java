@@ -72,6 +72,7 @@ public class DatabaseManager {
     }
 
     // 4. Menghapus Room dan isinya (CLOSE_ROOM)
+    // Menghapus room dari database secara permanen saat ditutup oleh owner
     public static void deleteRoom(String roomName) {
         String query = "DELETE FROM chat_rooms WHERE room_name = ?";
         try (Connection conn = getConnection();
@@ -79,7 +80,7 @@ public class DatabaseManager {
 
             pstmt.setString(1, roomName);
             pstmt.executeUpdate();
-            System.out.println("DB-LOG: Room " + roomName + " dihapus dari database.");
+            System.out.println("DB-LOG: Room [" + roomName + "] berhasil dihapus dari database.");
 
         } catch (SQLException e) {
             System.out.println("DB-ERROR (deleteRoom): " + e.getMessage());
@@ -150,4 +151,5 @@ public class DatabaseManager {
         }
         return null; // Room tidak ditemukan di database
     }
+
 }

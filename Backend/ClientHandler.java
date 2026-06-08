@@ -143,9 +143,13 @@ public class ClientHandler extends Thread {
                     // ==========================================
                     // FITUR OWNER: KICK DAN CLOSE_ROOM
                     // ==========================================
+                    // 🌟 DISESUAIKAN: Mengikuti kiriman "KICK" dari JFrame_Chat_Room_Interface
                     case "KICK":
-                        String userToKick = parts[1].trim();
-                        String currentRoomName = parts[2].trim(); // Pastikan client mengirimkan nama room-nya
+                        String currentRoomName = parts[1].trim(); // Indeks 1 adalah nama room
+                        String userToKick = parts[2].trim(); // Indeks 2 adalah nama target user
+
+                        System.out
+                                .println("LOG: Memproses KICK terhadap " + userToKick + " di room " + currentRoomName);
 
                         if (ChatServer.roomManager.containsKey(currentRoomName)) {
                             ChatRoom room = ChatServer.roomManager.get(currentRoomName);
@@ -167,45 +171,42 @@ public class ClientHandler extends Thread {
                                 // 3. Hapus user dari list member di RAM Server
                                 room.removeMember(targetHandler);
 
-                                // 4. Hapus status partisipan aktif dari database (opsional jika Anda
-                                // mencatatnya)
-                                // DatabaseManager.removeParticipant(currentRoomName, userToKick);
-
-                                // 5. KUNCI UTAMA: Siarkan daftar user terbaru ke anggota yang tersisa!
+                                // 4. KUNCI UTAMA: Siarkan daftar user terbaru ke anggota yang tersisa!
                                 room.broadcastUserList();
 
-                                // 6. Beri tahu sisa anggota melalui pesan sistem
+                                // 5. Beri tahu sisa anggota melalui pesan sistem
                                 room.broadcast("SYS_MSG|" + userToKick + " telah dikeluarkan dari ruangan.");
+                            } else {
+                                System.out.println("LOG: Target user tidak ditemukan di dalam room.");
                             }
                         }
                         break;
 
                     case "CLOSE_ROOM":
-                        if (parts.length < 2) {
-                            sendMessage("SYS_MSG|Gagal: Format salah. Gunakan CLOSE_ROOM|nama_room");
-                            break;
-                        }
-                        String closeRoomName = parts[1].trim();
-                        ChatRoom closeRoom = ChatServer.roomManager.get(closeRoomName);
+                        String roomToClose = parts[1].trim();
+                        System.out.println("LOG: Memproses penutupan room [" + roomToClose + "] oleh Owner.");
 
-                        if (closeRoom != null) {
-                            if (closeRoom.getOwnerName().equals(this.clientName)) {
+                        if (ChatServer.roomManager.containsKey(roomToClose)) {
+                            ChatRoom room = ChatServer.roomManager.get(roomToClose);
 
-                                // Broadcast sinyal paksa keluar ke SEMUA anggota
-                                closeRoom.broadcast("FORCE_LEAVE|Ruangan telah ditutup secara permanen oleh pemilik.");
-
-                                // PERBAIKAN: Kosongkan list member di memori Java terlebih dahulu agar aman
-                                closeRoom.getMembers().clear();
-
-                                ChatServer.roomManager.remove(closeRoomName);
-                                DatabaseManager.deleteRoom(closeRoomName);
-
-                                System.out.println("DEBUG: Ruangan " + closeRoomName + " telah dihapus dari server.");
-                            } else {
-                                sendMessage("SYS_MSG|Gagal: Anda tidak memiliki hak akses untuk menutup ruangan ini.");
+                            // 1. KUNCI UTAMA: Usir paksa SEMUA member yang ada di dalam room tersebut!
+                            // Kita gunakan copy list agar tidak terjadi ConcurrentModificationException
+                            java.util.List<ClientHandler> allMembers = new java.util.ArrayList<>(room.getMembers());
+                            for (ClientHandler member : allMembers) {
+                                // Kirim perintah FORCE_LEAVE agar GUI client otomatis menutup layar chat
+                                member.sendMessage("FORCE_LEAVE|Ruangan ini telah ditutup secara permanen oleh Owner.");
+                                room.removeMember(member);
                             }
-                        } else {
-                            sendMessage("SYS_MSG|Gagal: Ruangan tidak ditemukan.");
+
+                            // 2. Hapus room dari memori RAM Server
+                            ChatServer.roomManager.remove(roomToClose);
+
+                            // 3. Hapus room secara permanen dari Database SQL Server
+                            DatabaseManager.deleteRoom(roomToClose);
+
+                            // 4. SEBARKAN REFRESH: Perintahkan semua user yang ada di Lobby untuk
+                            // memperbarui tabel mereka
+                            broadcastLobbyRefresh();
                         }
                         break;
 
