@@ -113,4 +113,41 @@ public class DatabaseManager {
             System.out.println("DB-ERROR (deleteParticipant): " + e.getMessage());
         }
     }
+
+    // Ambil seluruh daftar ruangan yang ada untuk Lobby
+    public static java.util.List<String[]> getAllRooms() {
+        java.util.List<String[]> roomList = new java.util.ArrayList<>();
+        String query = "SELECT room_name, owner_name FROM chat_rooms";
+
+        try (Connection conn = getConnection();
+                PreparedStatement pstmt = conn.prepareStatement(query);
+                java.sql.ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                // Simpan format [Nama Room, Owner] ke list
+                roomList.add(new String[] { rs.getString("room_name"), rs.getString("owner_name") });
+            }
+        } catch (SQLException e) {
+            System.out.println("DB-ERROR (getAllRooms): " + e.getMessage());
+        }
+        return roomList;
+    }
+
+    // Mencari tahu owner dari suatu room, return null jika room tidak terdaftar
+    public static String getRoomOwner(String roomName) {
+        String query = "SELECT owner_name FROM chat_rooms WHERE room_name = ?";
+        try (Connection conn = getConnection();
+                PreparedStatement pstmt = conn.prepareStatement(query)) {
+
+            pstmt.setString(1, roomName);
+            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("owner_name");
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("DB-ERROR (getRoomOwner): " + e.getMessage());
+        }
+        return null; // Room tidak ditemukan di database
+    }
 }

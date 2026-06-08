@@ -102,31 +102,31 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
         // --- REVOLUSI WARNA HEADER TABEL AGAR FIX GELAP DI NIMBUS LABELS ---
         roomTable.getTableHeader().setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, 
+            public Component getTableCellRendererComponent(JTable table, Object value,
                     boolean isSelected, boolean hasFocus, int row, int column) {
-                
+
                 JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                
+
                 // Set warna background & tulisan atas tabel
                 label.setBackground(new Color(20, 26, 38)); // Gelap pekat elegan
                 label.setForeground(new Color(180, 190, 210)); // Tulisan abu-abu terang soft
                 label.setFont(new Font("Segoe UI", Font.BOLD, 13));
                 label.setHorizontalAlignment(SwingConstants.LEFT); // Rata kiri agar rapi
-                
+
                 // Memberikan padding/jarak tipis agar teks tidak terlalu menempel ke garis
                 label.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(42, 52, 74)), // Garis tepi gelap
-                    BorderFactory.createEmptyBorder(5, 8, 5, 5) // Jarak teks inside
+                        BorderFactory.createLineBorder(new Color(42, 52, 74)), // Garis tepi gelap
+                        BorderFactory.createEmptyBorder(5, 8, 5, 5) // Jarak teks inside
                 ));
-                
+
                 return label;
             }
         });
-        
+
         // Memastikan background utama header ikut tersinkronisasi
         roomTable.getTableHeader().setBackground(new Color(20, 26, 38));
         roomTable.getTableHeader().setOpaque(true);
-        
+
         // --- KUNCI PERBAIKAN: INISIALISASI & SETT WARNA WADAH ---
         JScrollPane scrollPane = new JScrollPane();
         scrollPane.setBounds(30, 100, 630, 260); // Atur ukuran wadah dulu
@@ -168,14 +168,9 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
             String roomName = JOptionPane.showInputDialog(this, "Masukkan Nama Room Baru:", "Create Room", JOptionPane.PLAIN_MESSAGE);
             if (roomName != null && !roomName.trim().isEmpty()) {
                 roomName = roomName.trim();
-                
-                // 1. Tembak data ke server backend lewat Socket TCP
+
+                // Cukup tembak data ke server backend, JANGAN langsung dispose/pindah halaman di sini!
                 ChatClient.getInstance().sendMessage("CREATE_ROOM|" + roomName);
-                
-                // 2. Berpindah halaman ke Interface Chat Room sebagai OWNER (true)
-                this.dispose();
-                JFrame_Chat_Room_Interface chatScreen = new JFrame_Chat_Room_Interface(currentUsername, roomName, true);
-                chatScreen.setVisible(true);
             }
         });
 
@@ -184,31 +179,40 @@ public class JFrame_Chat_Room_Lobby extends javax.swing.JFrame {
             int selectedRow = roomTable.getSelectedRow();
             if (selectedRow != -1) {
                 String roomName = roomTable.getValueAt(selectedRow, 0).toString();
-                
-                // 1. Tembak data join ke server backend
+
+                // Cukup tembak data join ke server, JANGAN langsung dispose/pindah halaman di sini!
                 ChatClient.getInstance().sendMessage("JOIN_ROOM|" + roomName);
-                
-                // 2. Berpindah halaman ke Interface Chat Room sebagai MEMBER BIASA (false)
-                this.dispose();
-                JFrame_Chat_Room_Interface chatScreen = new JFrame_Chat_Room_Interface(currentUsername, roomName, false);
-                chatScreen.setVisible(true);
             } else {
                 JOptionPane.showMessageDialog(this, "Silakan pilih room terlebih dahulu dari tabel!", "Peringatan", JOptionPane.WARNING_MESSAGE);
             }
         });
-        
+
         // Daftarkan frame ini ke ChatClient sebagai frame yang sedang aktif/terbuka
         ChatClient.getInstance().setCurrentActiveFrame(this);
+
+        // 🌟 TAMBAHKAN BARIS INI: Minta data room pertama kali dari database via server
+        ChatClient.getInstance().sendMessage("GET_ROOMS");
     }
-    
+
+    // Fungsi pemicu refresh (dipanggil saat user lain membuat room baru)
     public void refreshTableData() {
-        // Asumsi nama tabel Anda adalah jTable1 atau sejenisnya
-        // Ambil model dari tabel UI Anda
-        DefaultTableModel model = (DefaultTableModel) roomTable.getModel(); 
-        model.setRowCount(0); // Kosongkan baris tabel lama
-        
-        // Panggil kembali fungsi atau query yang bertugas mengisi tabel dari database Anda
-        // Contoh: loadRoomListFromDatabase();
+        // Minta data paling baru lagi ke server backend
+        ChatClient.getInstance().sendMessage("GET_ROOMS");
+    }
+
+    // Fungsi untuk mengisi data kiriman server ke dalam JTable
+    public void populateTable(java.util.List<String[]> rooms) {
+        // Proteksi: Jika server merespons terlalu cepat sebelum tabel selesai di-load, abaikan dulu
+        if (roomTable == null) {
+            return;
+        }
+
+        DefaultTableModel model = (DefaultTableModel) roomTable.getModel();
+        model.setRowCount(0);
+
+        for (String[] room : rooms) {
+            model.addRow(new Object[]{room[0], "Owner: " + room[1]});
+        }
     }
 
     // Panel khusus Background Gradient

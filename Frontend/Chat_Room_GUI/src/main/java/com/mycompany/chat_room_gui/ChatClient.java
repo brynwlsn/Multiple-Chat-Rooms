@@ -58,10 +58,6 @@ public class ChatClient {
         }
     }
 
-    public void setActiveFrame(Object frame) {
-        this.currentActiveFrame = frame;
-    }
-
     public String getCurrentUsername() {
         return currentUsername;
     }
@@ -140,6 +136,67 @@ public class ChatClient {
                 // Jalankan fungsi refresh tabel secara aman di dalam Thread UI Swing
                 SwingUtilities.invokeLater(() -> {
                     lobbyUI.refreshTableData();
+                });
+            }
+        }// ============================================================
+        // MENANGANI DATA DAFTAR ROOM DARI DATABASE SERVER
+        // ============================================================
+        else if (rawMsg.startsWith("ROOM_LIST")) {
+            parts = rawMsg.split("\\|");
+            java.util.List<String[]> availableRooms = new java.util.ArrayList<>();
+            
+            // Loop dimulai dari indeks 1 karena indeks 0 berisi kata "ROOM_LIST"
+            for (int i = 1; i < parts.length; i++) {
+                String[] roomData = parts[i].split("~"); // Pisahkan RoomName dan Owner
+                if (roomData.length == 2) {
+                    availableRooms.add(new String[]{roomData[0], roomData[1]});
+                }
+            }
+            
+            // Jika user saat ini sedang aktif membuka screen Lobby, update tabelnya!
+            if (currentActiveFrame instanceof JFrame_Chat_Room_Lobby) {
+                JFrame_Chat_Room_Lobby lobbyUI = (JFrame_Chat_Room_Lobby) currentActiveFrame;
+                
+                SwingUtilities.invokeLater(() -> {
+                    lobbyUI.populateTable(availableRooms);
+                });
+            }
+        }// ============================================================
+        // PERPINDAHAN HALAMAN CHAT INTERFACE SECARA AKURAT
+        // ============================================================
+        else if (rawMsg.startsWith("OPEN_ROOM")) {
+            parts = rawMsg.split("\\|");
+            String roomName = parts[1];
+            boolean isOwnerRole = Boolean.parseBoolean(parts[2]); // Membaca true/false dari server
+            
+            // Tutup layar Lobby yang sedang aktif saat ini
+            if (currentActiveFrame instanceof JFrame_Chat_Room_Lobby) {
+                JFrame_Chat_Room_Lobby lobbyUI = (JFrame_Chat_Room_Lobby) currentActiveFrame;
+                lobbyUI.dispose();
+            }
+            
+            // Buka layar Chat Room Interface dengan hak akses yang valid dari server
+            JFrame_Chat_Room_Interface chatScreen = new JFrame_Chat_Room_Interface(currentUsername, roomName, isOwnerRole);
+            chatScreen.setVisible(true);
+        }// ============================================================
+        // MULTI-USER: REFRESH DAFTAR USER DI DALAM CHAT ROOM INTERFACE
+        // ============================================================
+        else if (command.equals("UPDATE_USER_LIST")) {
+            parts = rawMsg.split("\\|");
+            java.util.List<String> activeUsers = new java.util.ArrayList<>();
+            
+            // Ambil nama-nama user (indeks 0 adalah kata "UPDATE_USER_LIST")
+            for (int i = 1; i < parts.length; i++) {
+                activeUsers.add(parts[i].trim());
+            }
+            
+            // Pastikan user saat ini sedang aktif membuka halaman Chat Room
+            if (currentActiveFrame instanceof JFrame_Chat_Room_Interface) {
+                JFrame_Chat_Room_Interface chatUI = (JFrame_Chat_Room_Interface) currentActiveFrame;
+                
+                // Update ke JList secara aman pada Thread Swing UI
+                SwingUtilities.invokeLater(() -> {
+                    chatUI.updateUserListOnUI(activeUsers);
                 });
             }
         }

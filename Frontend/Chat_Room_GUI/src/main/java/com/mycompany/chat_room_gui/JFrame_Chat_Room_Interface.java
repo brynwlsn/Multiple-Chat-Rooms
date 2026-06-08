@@ -215,7 +215,7 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
         });
 
         // Beritahu sistem jaringan bahwa layar chat room inilah yang sekarang sedang aktif di monitor
-        ChatClient.getInstance().setActiveFrame(this);
+        ChatClient.getInstance().setCurrentActiveFrame(this);
     }
 
     // Poin Nilai Plus: Mengatur chat kiriman sendiri agar RATA KANAN
@@ -296,6 +296,16 @@ public class JFrame_Chat_Room_Interface extends javax.swing.JFrame {
             doc.setParagraphAttributes(length, sysText.length() + 10, center, false);
         } catch (Exception ex) {
             ex.printStackTrace();
+        }
+    }
+    
+    // 🌟 TAMBAHKAN METHOD INI: Mengganti seluruh isi list user di GUI dengan data terbaru
+    public void updateUserListOnUI(java.util.List<String> usernames) {
+        if (listModel != null) {
+            listModel.clear(); // Kosongkan list lama
+            for (String u : usernames) {
+                listModel.addElement(u); // Masukkan list user terbaru
+            }
         }
     }
 

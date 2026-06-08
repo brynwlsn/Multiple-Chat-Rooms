@@ -53,21 +53,18 @@ public class ClientHandler extends Thread {
                         if (!ChatServer.roomManager.containsKey(newRoomName)) {
                             ChatRoom newRoom = new ChatRoom(newRoomName, this.clientName);
                             ChatServer.roomManager.put(newRoomName, newRoom);
-
-                            // Simpan room baru ke database
                             DatabaseManager.saveRoom(newRoomName, this.clientName);
 
-                            newRoom.addMember(this);
+                            newRoom.addMember(this); // Masuk room
                             DatabaseManager.saveParticipant(newRoomName, this.clientName);
-                            sendMessage("SYS_MSG|Berhasil membuat ruangan " + newRoomName);
+
+                            sendMessage("OPEN_ROOM|" + newRoomName + "|true");
+
+                            // 🌟 PEMBARUAN: Siarkan list user terbaru (pasti baru ada 1 orang yaitu Owner)
+                            newRoom.broadcastUserList();
+
                             newRoom.broadcast("SYS_MSG|" + this.clientName + " telah masuk.");
-
-                            // ============================================================
-                            // KUNCI UTAMA MASALAH 2: Pemicu Broadcast ke Semua Orang
-                            // ============================================================
                             broadcastLobbyRefresh();
-                            // ============================================================
-
                         } else {
                             sendMessage("SYS_MSG|Gagal: Nama ruangan sudah dipakai!");
                         }
@@ -75,18 +72,40 @@ public class ClientHandler extends Thread {
 
                     case "JOIN_ROOM":
                         String joinRoomName = parts[1].trim();
-                        ChatRoom targetJoin = ChatServer.roomManager.get(joinRoomName);
 
-                        if (targetJoin != null) {
-                            targetJoin.addMember(this);
+                        // KUNCI UTAMA: Jika room tidak ada di memori RAM (mungkin karena server habis
+                        // di-restart)
+                        if (!ChatServer.roomManager.containsKey(joinRoomName)) {
+                            // Cek ke database apakah room ini sebenarnya ada dan siapa owner-nya
+                            String ownerInDb = DatabaseManager.getRoomOwner(joinRoomName);
+
+                            if (ownerInDb != null) {
+                                // Jika ada di database, hidupkan kembali room tersebut ke dalam RAM Server!
+                                ChatRoom revivedRoom = new ChatRoom(joinRoomName, ownerInDb);
+                                ChatServer.roomManager.put(joinRoomName, revivedRoom);
+                                System.out
+                                        .println("LOG: Memulihkan room [" + joinRoomName + "] dari database ke RAM.");
+                            }
+                        }
+
+                        // Jalankan logika join room seperti biasa
+                        if (ChatServer.roomManager.containsKey(joinRoomName)) {
+                            ChatRoom room = ChatServer.roomManager.get(joinRoomName);
+
+                            room.addMember(this);
                             DatabaseManager.saveParticipant(joinRoomName, this.clientName);
-                            sendMessage("SYS_MSG|Berhasil masuk ke ruangan " + joinRoomName);
-                            targetJoin.broadcast("SYS_MSG|" + this.clientName + " tergabung.");
+
+                            boolean isOwnerOfRoom = room.getOwnerName().equalsIgnoreCase(this.clientName);
+                            sendMessage("OPEN_ROOM|" + joinRoomName + "|" + isOwnerOfRoom);
+
+                            room.broadcastUserList();
+                            room.broadcast("SYS_MSG|" + this.clientName + " telah masuk.");
                         } else {
-                            sendMessage("SYS_MSG|Gagal: Ruangan tidak ditemukan.");
+                            // Eror ini hanya akan keluar jika room benar-benar tidak ada di RAM maupun
+                            // Database
+                            sendMessage("SYS_MSG|Gagal: Ruangan tidak ditemukan di database!");
                         }
                         break;
-
                     case "SEND_MSG":
                         if (parts.length < 3) {
                             sendMessage("SYS_MSG|Gagal: Format pesan salah.");
@@ -125,50 +144,39 @@ public class ClientHandler extends Thread {
                     // FITUR OWNER: KICK DAN CLOSE_ROOM
                     // ==========================================
                     case "KICK":
-                        if (parts.length < 3) {
-                            sendMessage("SYS_MSG|Gagal: Format salah. Gunakan KICK|nama_room|nama_target");
-                            break;
-                        }
-                        String kickRoomName = parts[1].trim();
-                        String targetUserName = parts[2].trim();
-                        ChatRoom kickRoom = ChatServer.roomManager.get(kickRoomName);
+                        String userToKick = parts[1].trim();
+                        String currentRoomName = parts[2].trim(); // Pastikan client mengirimkan nama room-nya
 
-                        if (kickRoom != null) {
-                            // 1. Validasi Otoritas: Cek apakah pengirim perintah adalah owner
-                            if (kickRoom.getOwnerName().equals(this.clientName)) {
+                        if (ChatServer.roomManager.containsKey(currentRoomName)) {
+                            ChatRoom room = ChatServer.roomManager.get(currentRoomName);
 
-                                // 2. Cari target user di dalam list anggota ruangan tersebut
-                                ClientHandler targetClient = null;
-                                for (ClientHandler member : kickRoom.getMembers()) {
-                                    if (member.getClientName().equals(targetUserName)) {
-                                        targetClient = member;
-                                        break;
-                                    }
+                            // 1. Cari handler milik user yang akan di-kick
+                            ClientHandler targetHandler = null;
+                            for (ClientHandler member : room.getMembers()) {
+                                if (member.getClientName().equalsIgnoreCase(userToKick)) {
+                                    targetHandler = member;
+                                    break;
                                 }
-
-                                // 3. Eksekusi pengeluaran jika target ditemukan
-                                if (targetClient != null) {
-                                    kickRoom.removeMember(targetClient);
-                                    DatabaseManager.deleteParticipant(kickRoomName, targetUserName);
-
-                                    // Kirim sinyal khusus FORCE_LEAVE agar GUI target tahu ia harus kembali ke
-                                    // lobby
-                                    targetClient
-                                            .sendMessage("FORCE_LEAVE|Anda telah dikeluarkan oleh pemilik ruangan.");
-
-                                    // Beritahu anggota lain yang tersisa di ruangan
-                                    kickRoom.broadcast(
-                                            "SYS_MSG|" + targetUserName + " telah dikeluarkan dari ruangan.");
-                                } else {
-                                    sendMessage(
-                                            "SYS_MSG|Gagal: User " + targetUserName + " tidak ditemukan di ruangan.");
-                                }
-                            } else {
-                                sendMessage(
-                                        "SYS_MSG|Gagal: Anda tidak memiliki hak akses. Hanya pemilik ruangan yang dapat melakukan KICK.");
                             }
-                        } else {
-                            sendMessage("SYS_MSG|Gagal: Ruangan tidak ditemukan.");
+
+                            if (targetHandler != null) {
+                                // 2. Kirim perintah keluar paksa ke client target
+                                targetHandler
+                                        .sendMessage("FORCE_LEAVE|Anda telah dikeluarkan dari ruangan oleh Owner.");
+
+                                // 3. Hapus user dari list member di RAM Server
+                                room.removeMember(targetHandler);
+
+                                // 4. Hapus status partisipan aktif dari database (opsional jika Anda
+                                // mencatatnya)
+                                // DatabaseManager.removeParticipant(currentRoomName, userToKick);
+
+                                // 5. KUNCI UTAMA: Siarkan daftar user terbaru ke anggota yang tersisa!
+                                room.broadcastUserList();
+
+                                // 6. Beri tahu sisa anggota melalui pesan sistem
+                                room.broadcast("SYS_MSG|" + userToKick + " telah dikeluarkan dari ruangan.");
+                            }
                         }
                         break;
 
@@ -199,6 +207,20 @@ public class ClientHandler extends Thread {
                         } else {
                             sendMessage("SYS_MSG|Gagal: Ruangan tidak ditemukan.");
                         }
+                        break;
+
+                    case "GET_ROOMS":
+                        // 1. Ambil list dari database SQL Server
+                        java.util.List<String[]> dbRooms = DatabaseManager.getAllRooms();
+
+                        // 2. Gabungkan data menjadi format: ROOM_LIST|RoomA~Owner1|RoomB~Owner2
+                        StringBuilder sb = new StringBuilder("ROOM_LIST");
+                        for (String[] r : dbRooms) {
+                            sb.append("|").append(r[0]).append("~").append(r[1]);
+                        }
+
+                        // 3. Kirim balik ke client yang meminta
+                        sendMessage(sb.toString());
                         break;
 
                     default:
